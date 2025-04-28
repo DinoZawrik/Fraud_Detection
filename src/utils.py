@@ -2,26 +2,30 @@ import joblib
 import os
 import pandas as pd
 
-def save_pipeline(pipeline, file_path):
-    """Сохраняет пайплайн в файл."""
+def save_joblib(data, file_path):
+    """Универсальная функция для сохранения объекта с помощью joblib."""
     try:
-        joblib.dump(pipeline, file_path)
-        print(f"Пайплайн успешно сохранен в: {file_path}")
+        joblib.dump(data, file_path)
+        print(f"Объект успешно сохранен в: {file_path}")
     except Exception as e:
-        print(f"Ошибка при сохранении пайплайна в {file_path}: {e}")
+        print(f"Ошибка при сохранении объекта в {file_path}: {e}")
 
-def load_pipeline(file_path):
-    """Загружает пайплайн из файла."""
+def load_joblib(file_path):
+    """Универсальная функция для загрузки объекта с помощью joblib."""
     if not os.path.exists(file_path):
-        print(f"Ошибка: Файл модели не найден по пути {file_path}")
+        print(f"Ошибка: Файл не найден по пути {file_path}")
         return None
     try:
-        pipeline = joblib.load(file_path)
-        print(f"Пайплайн успешно загружен из: {file_path}")
-        return pipeline
+        data = joblib.load(file_path)
+        print(f"Объект успешно загружен из: {file_path}")
+        return data
     except Exception as e:
-        print(f"Ошибка при загрузке пайплайна из {file_path}: {e}")
+        print(f"Ошибка при загрузке объекта из {file_path}: {e}")
         return None
+
+# Переименуем для ясности
+save_pipeline = save_joblib
+load_pipeline = load_joblib
 
 def load_data(file_path):
     """Загружает данные из CSV."""

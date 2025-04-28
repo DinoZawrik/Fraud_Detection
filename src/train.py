@@ -1,119 +1,189 @@
 import pandas as pd
+import numpy as np
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report, recall_score, precision_score, f1_score, roc_auc_score, average_precision_score
+from sklearn.metrics import (classification_report, recall_score, precision_score,
+                             f1_score, roc_auc_score, average_precision_score,
+                             confusion_matrix, precision_recall_curve)
+from sklearn.pipeline import Pipeline # Нужен для ручного применения шагов для SHAP
 import lightgbm as lgb
 import os
 import warnings
+import joblib
+import shap
 
 # Импортируем компоненты из других модулей
-from src.config import DATA_PATH, TARGET_COLUMN, TEST_SIZE, RANDOM_STATE, LGBM_PARAMS, MODEL_SAVE_PATH, MODEL_DIR
-from src.utils import load_data, save_pipeline
-from src.pipeline import create_pipeline
+from src.config import (DATA_PATH, TARGET_COLUMN, TEST_SIZE, VALIDATION_SIZE, RANDOM_STATE,
+                        LGBM_PARAMS, MODEL_SAVE_PATH, METRICS_SAVE_PATH,
+                        SHAP_EXPLAINER_SAVE_PATH, SHAP_VALUES_SAVE_PATH,
+                        FEATURE_NAMES_SAVE_PATH, SHAP_SAMPLE_SIZE, OPTIMAL_THRESHOLD, MODEL_DIR)
+from src.utils import load_data, save_pipeline, save_joblib, load_pipeline
+from src.pipeline import create_pipeline # Пайплайн без внешнего сэмплера
+from src.data_preprocessing import time_transformer, amount_transformer, create_scaling_transformer # Импортируем шаги
 
-# Подавляем UserWarning от LGBM/Sklearn при работе без имен признаков в predict
 warnings.filterwarnings('ignore', category=UserWarning)
+warnings.filterwarnings('ignore', category=FutureWarning)
 
-def train_model():
-    """Обучает и сохраняет модель."""
+def find_optimal_threshold(pipeline, X_val, y_val):
+    """Находит оптимальный порог на валидационной выборке (макс F1)."""
+    print("--- Оптимизация порога на валидационной выборке ---")
+    try:
+        y_proba_val = pipeline.predict_proba(X_val)[:, 1]
+        precisions, recalls, thresholds = precision_recall_curve(y_val, y_proba_val)
+        thresholds = np.append(thresholds, 1.0) # Add 1.0 to align lengths
+
+        f1_scores = np.divide(2 * precisions * recalls, precisions + recalls,
+                              out=np.zeros_like(precisions), where=(precisions + recalls) != 0)
+
+        optimal_idx = np.argmax(f1_scores)
+        if optimal_idx >= len(thresholds): optimal_idx = len(thresholds) - 1
+        optimal_threshold = thresholds[optimal_idx]
+
+        print(f"   Найден оптимальный порог (макс F1): {optimal_threshold:.4f}")
+        print(f"   Метрики на Validation при этом пороге: F1={f1_scores[optimal_idx]:.3f}, Precision={precisions[optimal_idx]:.3f}, Recall={recalls[optimal_idx]:.3f}")
+        return optimal_threshold
+    except Exception as e:
+        print(f"   Ошибка при оптимизации порога: {e}. Используется стандартный порог 0.5")
+        return 0.5
+
+def train_and_evaluate():
+    """Полный цикл: загрузка, обучение, оценка, сохранение артефактов."""
 
     # 1. Загрузка данных
-    print("--- Загрузка данных ---")
+    print("--- 1. Загрузка данных ---")
     df = load_data(DATA_PATH)
-    if df is None:
-        return
+    if df is None: return
 
     # 2. Подготовка данных
-    print("--- Подготовка данных ---")
+    print("--- 2. Подготовка данных ---")
     try:
         X = df.drop(TARGET_COLUMN, axis=1)
         y = df[TARGET_COLUMN]
-    except KeyError:
-        print(f"Ошибка: Целевая колонка '{TARGET_COLUMN}' не найдена в данных.")
-        return
-    except Exception as e:
-        print(f"Ошибка при подготовке данных: {e}")
-        return
+    except KeyError: print(f"Ошибка: Целевая колонка '{TARGET_COLUMN}' не найдена."); return
+    except Exception as e: print(f"Ошибка при подготовке данных: {e}"); return
 
-
-    # 3. Разделение на обучающую и тестовую выборки
-    print("--- Разделение данных ---")
+    # 3. Разделение данных: Train / Validation / Test
+    print("--- 3. Разделение данных ---")
     try:
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y,
-            test_size=TEST_SIZE,
-            random_state=RANDOM_STATE,
-            stratify=y
-        )
-        print(f"Обучающая выборка: {X_train.shape}, Тестовая выборка: {X_test.shape}")
-    except Exception as e:
-        print(f"Ошибка при разделении данных: {e}")
-        return
+        X_train_full, X_test, y_train_full, y_test = train_test_split(
+            X, y, test_size=TEST_SIZE, random_state=RANDOM_STATE, stratify=y)
+        X_train, X_val, y_train, y_val = train_test_split(
+            X_train_full, y_train_full, test_size=VALIDATION_SIZE, random_state=RANDOM_STATE, stratify=y_train_full)
+        print(f"Train set: {X_train.shape}, Validation set: {X_val.shape}, Test set: {X_test.shape}")
+    except Exception as e: print(f"Ошибка при разделении данных: {e}"); return
 
     # 4. Создание модели и пайплайна
-    print("--- Создание модели и пайплайна ---")
-    # Убедимся, что используем параметры для высокого Recall (с class_weight='balanced')
-    if 'class_weight' not in LGBM_PARAMS or LGBM_PARAMS['class_weight'] != 'balanced':
-        print("Предупреждение: Параметр 'class_weight' не установлен в 'balanced' в config.py.")
-        print("Для достижения высокого Recall рекомендуется использовать 'class_weight': 'balanced'.")
-        # Можно принудительно установить, если нужно:
-        # LGBM_PARAMS['class_weight'] = 'balanced'
-
+    print("--- 4. Создание модели и пайплайна ---")
+    if LGBM_PARAMS.get('class_weight') != 'balanced':
+        print("Предупреждение: 'class_weight' != 'balanced'. Для высокого Recall рекомендуется 'balanced'.")
     lgbm_classifier = lgb.LGBMClassifier(**LGBM_PARAMS)
     pipeline = create_pipeline(lgbm_classifier)
     print("Пайплайн создан.")
 
-    # 5. Обучение модели
-    print("--- Обучение модели ---")
+    # 5. Обучение модели на обучающей выборке
+    print("--- 5. Обучение модели ---")
     try:
         pipeline.fit(X_train, y_train)
         print("Модель успешно обучена.")
-    except Exception as e:
-        print(f"Ошибка при обучении модели: {e}")
-        return
+    except Exception as e: print(f"Ошибка при обучении модели: {e}"); return
 
-    # 6. Оценка модели на тестовой выборке (используя порог 0.5 - .predict())
-    print("--- Оценка модели на тестовой выборке (порог 0.5) ---")
+    # 6. Оптимизация порога на валидационной выборке
+    # Закомментируй, если хочешь использовать порог из config.py напрямую
+    # optimal_threshold = find_optimal_threshold(pipeline, X_val, y_val)
+    # Используем порог из конфига (установи его там!)
+    optimal_threshold = OPTIMAL_THRESHOLD
+    print(f"--- Используется порог из конфигурации: {optimal_threshold:.4f} ---")
+
+
+    # 7. Оценка модели на ТЕСТОВОЙ выборке с оптимальным порогом
+    print(f"--- 7. Оценка модели на тестовой выборке (порог {optimal_threshold:.4f}) ---")
+    metrics = {}
     try:
-        y_pred = pipeline.predict(X_test)
-        y_proba = pipeline.predict_proba(X_test)[:, 1] # Для AUC метрик
+        y_proba_test = pipeline.predict_proba(X_test)[:, 1]
+        y_pred_test_thresh = (y_proba_test >= optimal_threshold).astype(int)
 
-        print("\nClassification Report:")
-        print(classification_report(y_test, y_pred, digits=3, target_names=['Legit (0)', 'Fraud (1)']))
+        print("\nClassification Report (Test Set):")
+        print(classification_report(y_test, y_pred_test_thresh, digits=3, target_names=['Legit (0)', 'Fraud (1)']))
 
-        recall_fraud = recall_score(y_test, y_pred, pos_label=1)
-        precision_fraud = precision_score(y_test, y_pred, pos_label=1)
-        f1_fraud = f1_score(y_test, y_pred, pos_label=1)
-        roc_auc = roc_auc_score(y_test, y_proba)
-        pr_auc = average_precision_score(y_test, y_proba)
+        metrics['recall_fraud'] = recall_score(y_test, y_pred_test_thresh, pos_label=1)
+        metrics['precision_fraud'] = precision_score(y_test, y_pred_test_thresh, pos_label=1)
+        metrics['f1_fraud'] = f1_score(y_test, y_pred_test_thresh, pos_label=1)
+        metrics['roc_auc'] = roc_auc_score(y_test, y_proba_test) # AUC не зависит от порога
+        metrics['pr_auc'] = average_precision_score(y_test, y_proba_test) # AUC не зависит от порога
+        metrics['cm'] = confusion_matrix(y_test, y_pred_test_thresh).tolist() # Сохраняем как list
 
-        print("--- Ключевые метрики ---")
-        print(f"Recall (Fraud):    {recall_fraud:.3f}")
-        print(f"Precision (Fraud): {precision_fraud:.3f}")
-        print(f"F1-Score (Fraud):  {f1_fraud:.3f}")
-        print(f"ROC AUC:           {roc_auc:.3f}")
-        print(f"PR AUC:            {pr_auc:.3f}")
+        print("--- Ключевые метрики (Test Set) ---")
+        for k, v in metrics.items():
+            if k != 'cm': print(f"{k:<18}: {v:.3f}")
+        print(f"{'confusion_matrix':<18}: {metrics['cm']}")
 
-        # Проверяем, соответствует ли Recall ожиданиям (~0.83)
-        if 0.80 < recall_fraud < 0.86: # Примерный диапазон
-             print("\nRecall соответствует ожидаемому диапазону (~0.83).")
+    except Exception as e: print(f"Ошибка при оценке модели: {e}"); return
+
+
+    # 8. Сохранение артефактов
+    print("--- 8. Сохранение артефактов ---")
+    os.makedirs(MODEL_DIR, exist_ok=True)
+    save_pipeline(pipeline, MODEL_SAVE_PATH) # Сохраняем пайплайн
+    save_joblib(metrics, METRICS_SAVE_PATH)    # Сохраняем метрики
+
+    # 9. Расчет и сохранение SHAP (на примере тестовых данных)
+    print("--- 9. Расчет и сохранение SHAP ---")
+    try:
+        print(f"   Создание выборки для SHAP ({SHAP_SAMPLE_SIZE} примеров)...")
+        if len(X_test) > SHAP_SAMPLE_SIZE:
+            # Берем стратифицированную выборку из теста для SHAP
+            X_test_sample, _, y_test_sample, _ = train_test_split(
+                 X_test, y_test, train_size=SHAP_SAMPLE_SIZE, random_state=RANDOM_STATE, stratify=y_test
+            )
         else:
-             print(f"\nВНИМАНИЕ: Полученный Recall ({recall_fraud:.3f}) отличается от ожидаемого (~0.83).")
-             print("          Проверьте гиперпараметры в config.py или данные.")
+             X_test_sample = X_test.copy()
 
-    except Exception as e:
-        print(f"Ошибка при оценке модели: {e}")
-        return
+        print("   Применение шагов предобработки для SHAP...")
+        # Применяем шаги пайплайна ДО классификатора вручную
+        pipeline_steps_before_classifier = pipeline.steps[:-1]
+        temp_preprocessor_pipeline = Pipeline(pipeline_steps_before_classifier)
+        # Важно: fit_transform на ТЕСТОВОЙ выборке не годится, нужен только transform
+        # Но трансформеры могли быть обучены на ТРЕЙНЕ. Переобучим их на трейне для надежности
+        # temp_preprocessor_pipeline.fit(X_train, y_train) # Fit на трейне
+        # X_shap_transformed = temp_preprocessor_pipeline.transform(X_test_sample) # Transform на сэмпле теста
+        # ---> Упрощение: Заново создадим и обучим препроцессор на трейне <---
+        scaler = create_scaling_transformer()
+        preproc_pipe_steps = [
+            ('time_features', time_transformer),
+            ('amount_log', amount_transformer),
+            ('scaler', scaler)
+        ]
+        preproc_pipeline_for_shap = Pipeline(preproc_pipe_steps)
+        preproc_pipeline_for_shap.fit(X_train) # Fit на обучающих данных
+        X_shap_transformed = preproc_pipeline_for_shap.transform(X_test_sample) # Transform на выборке
 
-    # 7. Сохранение обученного пайплайна
-    print("--- Сохранение модели ---")
-    os.makedirs(MODEL_DIR, exist_ok=True) # Создаем папку, если ее нет
-    save_pipeline(pipeline, MODEL_SAVE_PATH)
+        # Получаем имена признаков ПОСЛЕ всех трансформаций
+        feature_names_transformed = list(X_shap_transformed.columns)
+        print(f"   Получено {len(feature_names_transformed)} имен признаков после препроцессинга.")
+        save_joblib(feature_names_transformed, FEATURE_NAMES_SAVE_PATH) # Сохраняем имена
 
-    # --- (Опционально) Расчет и сохранение SHAP ---
-    # Сюда можно добавить код для расчета SHAP на X_test и сохранения explainer/values
-    # ...
+        # Создаем SHAP explainer
+        lgbm_model = pipeline.named_steps['classifier']
+        print("   Создание SHAP TreeExplainer...")
+        # Передаем DataFrame для фона (если возможно)
+        explainer = shap.TreeExplainer(lgbm_model, X_shap_transformed)
 
-    print("--- Процесс обучения завершен ---")
+        # Рассчитываем SHAP values
+        print(f"   Расчет SHAP values для {len(X_shap_transformed)} примеров...")
+        #shap_values = explainer.shap_values(X_shap_transformed) # Для бинарной классификации shap_values[1] - для класса 1
+        shap_values_obj = explainer(X_shap_transformed) # Используем объект explainer для получения base_values и т.д.
+
+
+        # Сохраняем explainer и SHAP values (объект)
+        print("   Сохранение SHAP explainer и values...")
+        save_joblib(explainer, SHAP_EXPLAINER_SAVE_PATH)
+        # Сохраняем объект shap_values_obj, он содержит все необходимое
+        save_joblib(shap_values_obj, SHAP_VALUES_SAVE_PATH)
+
+    except ImportError: print("\n   Библиотека SHAP не установлена. Шаг SHAP пропущен.")
+    except Exception as e: print(f"\n   Ошибка при расчете или сохранении SHAP: {e}")
+
+
+    print("\n--- Процесс обучения и оценки завершен ---")
 
 if __name__ == '__main__':
-    train_model()
+    train_and_evaluate()
