@@ -1,6 +1,8 @@
+# src/utils.py
 import joblib
 import os
 import pandas as pd
+import traceback # <--- Добавь этот импорт
 
 def save_joblib(data, file_path):
     """Универсальная функция для сохранения объекта с помощью joblib."""
@@ -16,11 +18,16 @@ def load_joblib(file_path):
         print(f"Ошибка: Файл не найден по пути {file_path}")
         return None
     try:
+        print(f"--> Попытка загрузки: {file_path}") # Добавлено для отладки
         data = joblib.load(file_path)
-        print(f"Объект успешно загружен из: {file_path}")
+        print(f"--> Объект успешно загружен из: {file_path}") # Добавлено для отладки
         return data
     except Exception as e:
-        print(f"Ошибка при загрузке объекта из {file_path}: {e}")
+        # ---> ВЫВОДИМ ПОЛНУЮ ОШИБКУ <---
+        print(f"!!! Ошибка при загрузке объекта из {file_path}: {e}")
+        print("!!! Полный Traceback: ")
+        traceback.print_exc() # Печатаем полный traceback в консоль/логи
+        # ---> КОНЕЦ ИЗМЕНЕНИЙ <---
         return None
 
 # Переименуем для ясности
