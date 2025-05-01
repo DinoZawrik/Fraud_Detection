@@ -1,5 +1,9 @@
-# main.py
-# Импортируем обновленную функцию
+"""
+Главный скрипт для запуска процесса обучения и оценки модели.
+
+Импортирует и вызывает функцию `train_and_evaluate` из модуля `src.train`.
+"""
+
 from src.train import train_and_evaluate
 
 if __name__ == "__main__":
