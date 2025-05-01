@@ -173,11 +173,18 @@ def train_and_evaluate():
         shap_values_obj = explainer(X_shap_transformed) # Используем объект explainer для получения base_values и т.д.
 
 
-        # Сохраняем explainer и SHAP values (объект)
         print("   Сохранение SHAP explainer и values...")
         save_joblib(explainer, SHAP_EXPLAINER_SAVE_PATH)
-        # Сохраняем объект shap_values_obj, он содержит все необходимое
         save_joblib(shap_values_obj, SHAP_VALUES_SAVE_PATH)
+
+        # ---> ДОБАВЬ СОХРАНЕНИЕ ДАННЫХ ДЛЯ SHAP <---
+        try:
+            # X_shap_transformed должен быть DataFrame на этом этапе
+            TRANSFORMED_DATA_FILENAME = 'X_shap_sample_transformed.joblib'
+            TRANSFORMED_DATA_SAVE_PATH = os.path.join(MODEL_DIR, TRANSFORMED_DATA_FILENAME)
+            save_joblib(X_shap_transformed, TRANSFORMED_DATA_SAVE_PATH)
+        except Exception as e_save_data:
+            print(f"   Предупреждение: Не удалось сохранить трансформированные данные для SHAP: {e_save_data}")
 
     except ImportError: print("\n   Библиотека SHAP не установлена. Шаг SHAP пропущен.")
     except Exception as e: print(f"\n   Ошибка при расчете или сохранении SHAP: {e}")

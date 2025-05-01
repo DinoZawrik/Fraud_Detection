@@ -22,6 +22,13 @@ SHAP_VALUES_SAVE_PATH = os.path.join(MODEL_DIR, SHAP_VALUES_FILENAME)
 FEATURE_NAMES_FILENAME = 'feature_names_transformed.joblib' # Имена после препроцессинга
 FEATURE_NAMES_SAVE_PATH = os.path.join(MODEL_DIR, FEATURE_NAMES_FILENAME)
 
+
+# src/config.py
+# ... другие пути ...
+TRANSFORMED_DATA_FILENAME = 'X_shap_sample_transformed.joblib'
+TRANSFORMED_DATA_SAVE_PATH = os.path.join(MODEL_DIR, TRANSFORMED_DATA_FILENAME)
+# ... остальные параметры ...
+
 # --- Параметры Моделирования ---
 TARGET_COLUMN = 'Class'
 TEST_SIZE = 0.25 # Доля тестовой выборки
@@ -46,6 +53,6 @@ LGBM_PARAMS = {
 }
 
 OPTIMAL_THRESHOLD = 0.5 # Пример, ЗАМЕНИ, если оптимизировал порог
-
+MIN_PRECISION_TARGET = 0.85
 # --- Параметры SHAP ---
 SHAP_SAMPLE_SIZE = 1000 #
