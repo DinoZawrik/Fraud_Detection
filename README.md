@@ -80,7 +80,7 @@ fraud_detection_project/
 
 1.  **Клонировать репозиторий:**
     ```bash
-    git clone [URL твоего репозитория]
+    git clone https://github.com/DinoZawrik/Fraud_Detection.git
     cd fraud_detection_project
     ```
 2.  **Создать и активировать виртуальное окружение** (рекомендуется):
