@@ -44,30 +44,15 @@ save_pipeline = save_joblib
 load_pipeline = load_joblib
 
 
-from io import StringIO # Для чтения CSV из текста
-
-def load_data(file_path_or_url):
-    """Загружает данные из CSV по локальному пути или URL."""
-    if file_path_or_url.startswith('http'):
-        try:
-            print(f"Загрузка данных по URL: {file_path_or_url}")
-            response = requests.get(file_path_or_url)
-            response.raise_for_status() # Проверка на ошибки HTTP
-            csv_data = StringIO(response.text) # Читаем текстовый ответ как файл
-            df = pd.read_csv(csv_data)
-            print("Данные успешно загружены по URL.")
-            return df
-        except Exception as e:
-            print(f"Ошибка при загрузке данных по URL {file_path_or_url}: {e}")
-            return None
-    else: # Локальный путь
-        if not os.path.exists(file_path_or_url):
-            print(f"Ошибка: Файл данных не найден по пути {file_path_or_url}")
-            return None
-        try:
-            df = pd.read_csv(file_path_or_url)
-            print(f"Данные успешно загружены из: {file_path_or_url}")
-            return df
-        except Exception as e:
-            print(f"Ошибка при загрузке данных из {file_path_or_url}: {e}")
-            return None
+def load_data(file_path):
+    """Загружает данные из CSV по локальному пути."""
+    if not os.path.exists(file_path):
+        print(f"Ошибка: Файл данных не найден по пути {file_path}")
+        return None
+    try:
+        df = pd.read_csv(file_path)
+        print(f"Данные успешно загружены из: {file_path}")
+        return df
+    except Exception as e:
+        print(f"Ошибка при загрузке данных из {file_path}: {e}")
+        return None
