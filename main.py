@@ -1,15 +1,13 @@
-"""
-Главный скрипт для запуска процесса обучения и оценки модели.
+"""Entry point for model training and evaluation."""
 
-Импортирует и вызывает функцию `train_and_evaluate` из модуля `src.train`.
-"""
+import logging
 
 from src.train import train_and_evaluate
 
+logger = logging.getLogger(__name__)
+
 if __name__ == "__main__":
-    print("Запуск основного скрипта проекта (Обучение и Оценка)...")
-
-    # Вызываем основную функцию обучения и оценки
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(message)s")
+    logger.info("Starting training pipeline...")
     train_and_evaluate()
-
-    print("\nОсновной скрипт проекта завершен.")
+    logger.info("Training pipeline finished.")

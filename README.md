@@ -1,158 +1,141 @@
-#  Fraud Detection 💳🔍
+# Fraud Detection — LightGBM + SHAP + Streamlit
 
-## 🚀 **ДЕМО ПРИЛОЖЕНИЯ**
+![Python](https://img.shields.io/badge/Python-3.9%2B-blue)
+![LightGBM](https://img.shields.io/badge/LightGBM-4.3.0-green)
+![SHAP](https://img.shields.io/badge/SHAP-0.45.0-orange)
+![Streamlit](https://img.shields.io/badge/Streamlit-1.33.0-red)
+![Docker](https://img.shields.io/badge/Docker-%E2%9C%93-blue)
 
-**Попробуйте интерактивный дашборд онлайн:**
+End-to-end fraud detection on credit card transactions: feature engineering, LightGBM, SHAP explainability, and an interactive Streamlit dashboard — deployed to Streamlit Cloud and packaged in Docker.
+
+## Live Demo
 
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://frauddetection-fyfacu5knprcf8ngxjnhxn.streamlit.app/)
 
-*(Нажмите на бейдж выше, чтобы открыть приложение. Примечание: Приложение размещено на бесплатном тире Streamlit Community Cloud, возможен переход в спящий режим при неактивности.)*
-
-## Описание Проекта
-
-Этот проект представляет собой комплексное решение для **обнаружения мошеннических банковских транзакций** с использованием машинного обучения. Он включает в себя полный цикл ML: от предобработки данных и инжиниринга признаков до обучения модели (LightGBM), ее оценки, интерпретации с помощью SHAP и развертывания в виде интерактивного **Streamlit дашборда**, упакованного в **Docker**-контейнер.
-
-**Цель:** Предоставить не только модель для предсказания, но и инструмент для анализа ее производительности, понимания факторов, влияющих на мошенничество, и исследования исходных данных.
-
-**Датасет:** Классический [Credit Card Fraud Detection](https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud) с Kaggle (данные анонимизированы с помощью PCA).
+> Hosted on Streamlit Community Cloud free tier — may need a moment to wake up after inactivity.
 
 ---
 
-## ✨ Основные Возможности Streamlit Дашборда
+## Model Performance
 
-*   **Интерактивное Предсказание:** Загрузка случайных легитимных или мошеннических транзакций из тестового набора.
-*   **"What-If" Анализ:** Возможность изменять ключевые параметры (`Time`, `Amount` и самые важные V-признаки) для выбранной транзакции и мгновенно видеть, как это влияет на предсказание модели.
-*   **Объяснение Предсказаний (SHAP):**
-    *   **Waterfall Plot:** Наглядно показывает вклад каждого признака в конкретное предсказание.
-    *   **Force Plot:** Визуализирует "силы", толкающие предсказание к классу "Fraud" или "Legit".
-*   **Дашборд Производительности Модели:**
-    *   Отображение ключевых метрик (Recall, Precision, F1-Score, ROC AUC, PR AUC) на тестовой выборке с учетом выбранного порога.
-    *   Интерактивный выбор метрики для оптимизации порога (F1, Recall-приоритет, Precision-приоритет).
-    *   Визуализация Матрицы Ошибок (Confusion Matrix).
-    *   Глобальная Важность Признаков (SHAP Bar Plot).
-*   **Исследование Данных (EDA):**
-    *   Интерактивные гистограммы для анализа распределения признаков (в целом и по классам).
-    *   Фильтрация данных по диапазону сумм (`Amount`) для более детального анализа.
-    *   Интерактивный Scatter Plot для исследования взаимосвязи между двумя выбранными признаками.
-    *   Сводные статистики по признакам.
-*   **Имитация Мониторинга:** Сравнение распределения предсказанных вероятностей и доли фрода на "новых" (случайная выборка) и валидационных данных для имитации обнаружения дрейфа.
+| Metric | Value |
+| --- | --- |
+| ROC AUC | **0.976** |
+| PR AUC | **0.850** |
+| Recall (Fraud) | 0.821 |
+| Precision (Fraud) | 0.910 |
+| F1 (Fraud) | 0.863 |
+
+Evaluated on held-out test set. Threshold optimized on validation set.
 
 ---
 
-## 🛠️ Технологический Стек
+## Dataset
 
-*   **Язык:** Python 3.9+
-*   **Обработка Данных:** Pandas, NumPy
-*   **Машинное Обучение:** Scikit-learn, LightGBM, Imbalanced-learn
-*   **Интерпретация:** SHAP
-*   **Веб-Дашборд:** Streamlit
-*   **Визуализация:** Matplotlib, Seaborn
-*   **Сериализация:** Joblib
-*   **Контейнеризация:** Docker
+[Credit Card Fraud Detection](https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud) (Kaggle) — 284,807 transactions, 492 fraudulent (0.17%). Features V1–V28 are PCA-anonymized; `Time` and `Amount` are raw.
+
+> `data/creditcard.csv` is gitignored. Download from Kaggle and place in `data/` before training.
 
 ---
 
-## 📁 Структура Проекта
+## Dashboard Features
+
+Three tabs in the Streamlit app:
+
+### 1. Prediction & What-If
+
+- Load a random legitimate or fraudulent transaction from the test set
+- Adjust `Time`, `Amount`, and the most influential V-features in real time
+- See the updated prediction and SHAP waterfall / force plots instantly
+
+### 2. Model Performance
+
+- Key metrics: Recall, Precision, F1, ROC AUC, PR AUC
+- Interactive threshold selector (optimize for F1 / Recall / Precision)
+- Confusion matrix, global SHAP feature importance bar plot
+
+### 3. EDA
+
+- Interactive histograms by class (fraud vs. legitimate)
+- Amount range filter
+- Scatter plot for any two features (5,000-sample subset)
+- Per-class summary statistics
+
+## Screenshots
+
+| Prediction & What-If | Model Performance | Data Exploration |
+|:---:|:---:|:---:|
+| ![Prediction](screenshot/prediction_tab.png) | ![Performance](screenshot/model_performance.png) | ![EDA](screenshot/eda_tab.png) |
+
+---
+
+## Feature Engineering
+
+| Feature | Transformation |
+| --- | --- |
+| `Time` | Cyclic encoding — `sin` and `cos` of 24-hour period |
+| `Amount` | `log1p` → `RobustScaler` |
+| V1–V28 | `RobustScaler` |
+
+---
+
+## Project Structure
 
 ```
-fraud_detection_project/
+Fraud_Detection/
 ├── data/
-│   └── creditcard.csv        # Исходный датасет
-├── models/                   # Сохраненные артефакты (модель, метрики, shap...)
+│   └── creditcard.csv        # gitignored — download from Kaggle
+├── models/                   # saved artifacts (model, SHAP explainer, metrics)
+├── notebooks/
+│   └── EDA.ipynb
 ├── src/
-│   ├── __init__.py           # Инициализация пакета src
-│   ├── config.py             # Конфигурация (пути, параметры модели, порог)
-│   ├── utils.py              # Утилиты (загрузка/сохранение данных/моделей)
-│   ├── data_preprocessing.py # Функции Feature Engineering и Scaler
-│   ├── pipeline.py           # Сборка ML пайплайна
-│   └── train.py              # Скрипт обучения, оценки и сохранения артефактов
-├── app.py                    # Код Streamlit приложения/дашборда
-├── main.py                   # Точка входа для запуска обучения из корня
-├── Dockerfile                # Инструкции для сборки Docker-образа
-├── requirements.txt          # Зависимости Python
-├── .dockerignore             # Файлы, игнорируемые Docker при сборке
-└── README.md                 # Этот файл
+│   ├── __init__.py
+│   ├── config.py             # paths, model params, threshold
+│   ├── utils.py              # I/O helpers
+│   ├── data_preprocessing.py # feature engineering transformers
+│   ├── pipeline.py           # sklearn Pipeline assembly
+│   └── train.py              # training, evaluation, artifact saving
+├── app.py                    # Streamlit dashboard (3 tabs)
+├── main.py                   # entrypoint → calls src.train
+├── Dockerfile
+├── requirements.txt
+└── .gitignore
 ```
 
 ---
 
-## ⚙️ Установка и Настройка
+## Quick Start
 
-1.  **Клонировать репозиторий:**
-    ```bash
-    git clone https://github.com/DinoZawrik/Fraud_Detection.git
-    cd fraud_detection_project
-    ```
-2.  **Создать и активировать виртуальное окружение** (рекомендуется):
-    **venv:**
-    ```bash
-    python -m venv .venv
-    source .venv/bin/activate  # Linux/macOS
-    # или
-    .\.venv\Scripts\activate   # Windows
-    ```
-    **conda:**
-    ```bash
-    conda create -n fraud_env python=3.10
-    conda activate fraud_env
-    ```
-1.  **Установить зависимости:**
-    ```bash
-    pip install -r requirements.txt
-    ```
-2.  **Разместить данные:** Убедись, что файл `creditcard.csv` находится в папке `data/`.
-
----
-
-## ▶️ Использование
-
-*Все команды выполняются из **корневой папки проекта** (`fraud_detection_project/`).*
-
-**1. Обучение Модели и Сохранение Артефактов:**
-
-Эта команда запустит весь процесс: загрузка данных, предобработка, обучение модели LGBM с лучшими параметрами (указанными в `src/config.py`), оценка на тестовой выборке, расчет SHAP и сохранение всех необходимых `.joblib` файлов в папку `models/`.
+### Local
 
 ```bash
-python main.py
+git clone https://github.com/DinoZawrik/Fraud_Detection.git
+cd Fraud_Detection
+python -m venv .venv && source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+# place creditcard.csv in data/
+python main.py          # train model, save artifacts to models/
+streamlit run app.py    # open http://localhost:8501
 ```
-*(Или, если `main.py` нет: `python -m src.train`)*
 
-**2. Запуск Streamlit Дашборда Локально:**
-
-После успешного выполнения шага 1, можно запустить интерактивный дашборд.
+### Docker
 
 ```bash
-streamlit run app.py
+docker build -t fraud-detection .
+docker run -p 8501:8501 --rm fraud-detection
+# open http://localhost:8501
 ```
-Открой браузер и перейди по адресу, указанному в терминале (обычно `http://localhost:8501`).
-
-**3. Запуск с Помощью Docker:**
-
-Убедись, что Docker Desktop (или Docker Engine) запущен.
-
-*   **Сборка образа** (выполняется один раз или после изменений в коде/зависимостях):
-    ```bash
-    docker build -t fraud-detection-dashboard .
-    ```
-*   **Запуск контейнера:**
-    ```bash
-    docker run -p 8501:8501 --rm --name fraud-app fraud-detection-dashboard
-    ```
-*   Открой браузер и перейди по адресу `http://localhost:8501`.
 
 ---
 
-## 📈 Результаты Модели
+## Stack
 
-*   **Модель:** LightGBM с инжинирингом признаков (циклическое время, логарифм суммы) и балансировкой классов (`class_weight='balanced'`).
-*   **Оптимальный Порог:** `0.5` (был выбран для [УКАЖИ ЦЕЛЬ, например, максимизации F1 или Recall>X & Prec>Y] на валидационной выборке).
-*   **Ключевые Метрики на Тестовой Выборке (с указанным порогом):**
-    *   Recall (Fraud): `0.821`
-    *   Precision (Fraud): `0.910`
-    *   F1-Score (Fraud): `0.863`
-    *   ROC AUC: `0.976`
-    *   PR AUC: `0.850`
-
-*Более детальные метрики и визуализации доступны в самом дашборде.*
-
----
+| Layer | Tools |
+| --- | --- |
+| Data | Pandas, NumPy |
+| Modeling | LightGBM, scikit-learn, imbalanced-learn |
+| Explainability | SHAP (TreeExplainer) |
+| Dashboard | Streamlit |
+| Visualization | Matplotlib, Seaborn |
+| Serialization | Joblib |
+| Deployment | Docker, Streamlit Community Cloud |

@@ -1,52 +1,37 @@
-"""
-Файл конфигурации проекта.
-
-Содержит пути к данным и артефактам, параметры моделирования,
-оптимальный порог и параметры для SHAP анализа.
-"""
+"""Project configuration: paths, model hyperparameters, threshold settings."""
 
 import os
 
-# --- Пути ---
-BASE_DIR = os.path.dirname(
-    os.path.dirname(os.path.abspath(__file__))
-)  # Корень проекта (папка Fraud)
+# --- Paths ---
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # project root
 DATA_PATH = os.path.join(BASE_DIR, "data", "creditcard.csv")
-MODEL_DIR = os.path.join(BASE_DIR, "models")  # Папка для всех артефактов
+MODEL_DIR = os.path.join(BASE_DIR, "models")
 
-# Основная модель/пайплайн
 MODEL_FILENAME = "lgbm_fe_recall_optimized.joblib"
 MODEL_SAVE_PATH = os.path.join(MODEL_DIR, MODEL_FILENAME)
 
-# Дополнительные артефакты для дашборда
 METRICS_FILENAME = "test_metrics.joblib"
 METRICS_SAVE_PATH = os.path.join(MODEL_DIR, METRICS_FILENAME)
 
 SHAP_EXPLAINER_FILENAME = "shap_explainer.joblib"
 SHAP_EXPLAINER_SAVE_PATH = os.path.join(MODEL_DIR, SHAP_EXPLAINER_FILENAME)
 
-SHAP_VALUES_FILENAME = "shap_values_sample.joblib"  # Для выборки данных
+SHAP_VALUES_FILENAME = "shap_values_sample.joblib"
 SHAP_VALUES_SAVE_PATH = os.path.join(MODEL_DIR, SHAP_VALUES_FILENAME)
 
-FEATURE_NAMES_FILENAME = (
-    "feature_names_transformed.joblib"  # Имена после препроцессинга
-)
+FEATURE_NAMES_FILENAME = "feature_names_transformed.joblib"
 FEATURE_NAMES_SAVE_PATH = os.path.join(MODEL_DIR, FEATURE_NAMES_FILENAME)
 
-# Данные для SHAP Dependence Plot (трансформированные)
 TRANSFORMED_DATA_FILENAME = "X_shap_sample_transformed.joblib"
 TRANSFORMED_DATA_SAVE_PATH = os.path.join(MODEL_DIR, TRANSFORMED_DATA_FILENAME)
 
-
-# --- Параметры Моделирования ---
+# --- Modeling ---
 TARGET_COLUMN = "Class"
-TEST_SIZE = 0.25  # Доля тестовой выборки от всего датасета
-VALIDATION_SIZE = (
-    0.33  # Доля валидационной выборки от данных, ОСТАВШИХСЯ после выделения тестовой
-)
+TEST_SIZE = 0.25        # fraction of full dataset held out as test
+VALIDATION_SIZE = 0.33  # fraction of training remainder used for validation
 RANDOM_STATE = 42
 
-# Параметры для LightGBM (подобранные)
+# LightGBM hyperparameters — tuned via Optuna (100 trials, optimizing PR AUC on validation set)
 LGBM_PARAMS = {
     "class_weight": "balanced",
     "n_estimators": 332,
@@ -64,11 +49,8 @@ LGBM_PARAMS = {
     "verbosity": -1,
 }
 
-# Оптимальный порог для классификации (может быть результатом оптимизации)
-OPTIMAL_THRESHOLD = 0.5
-# Минимальный Precision для поиска порога в дашборде
-MIN_PRECISION_TARGET = 0.85
+OPTIMAL_THRESHOLD = 0.5      # classification threshold
+MIN_PRECISION_TARGET = 0.85  # minimum precision for Recall-optimized threshold
 
-# --- Параметры SHAP ---
-# Размер выборки для расчета SHAP values (влияет на скорость и репрезентативность)
-SHAP_SAMPLE_SIZE = 1000
+# --- SHAP ---
+SHAP_SAMPLE_SIZE = 1000  # number of test samples used for SHAP computation

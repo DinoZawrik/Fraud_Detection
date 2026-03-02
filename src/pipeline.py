@@ -1,47 +1,40 @@
-"""
-Модуль для создания полного пайплайна машинного обучения.
+"""ML pipeline assembly.
 
-Объединяет шаги предобработки данных (создание признаков времени,
-логарифмирование суммы, масштабирование) с финальной моделью классификации.
-Использует Pipeline из imblearn для потенциальной совместимости с семплерами,
-хотя в данной конфигурации семплинг не применяется напрямую в пайплайне.
+Combines preprocessing steps (cyclic time encoding, log-Amount, scaling)
+with the final classifier into a single sklearn-compatible Pipeline.
 """
 
 from imblearn.pipeline import Pipeline as ImbPipeline
+
 from src.data_preprocessing import (
-    time_transformer,
-    amount_transformer,
+    create_amount_transformer,
     create_scaling_transformer,
+    create_time_transformer,
 )
 
 
-def create_pipeline(model):
-    """
-    Собирает и возвращает полный пайплайн обработки данных и моделирования.
+def create_pipeline(model) -> ImbPipeline:
+    """Assemble and return the full preprocessing + modeling pipeline.
 
-    Включает шаги:
-    1. Создание циклических признаков времени ('time_features').
-    2. Логарифмирование признака суммы ('amount_log').
-    3. Масштабирование новых признаков с помощью RobustScaler ('scaler').
-    4. Применение финальной модели ('classifier').
+    Steps:
+      1. time_features  — cyclic sin/cos encoding of 'Time'
+      2. amount_log     — log1p transformation of 'Amount'
+      3. scaler         — RobustScaler on Amount_log, time_sin, time_cos
+      4. classifier     — the provided model
 
-    Предполагается, что балансировка классов обрабатывается внутри
-    переданной модели (например, через параметр class_weight='balanced').
+    Class imbalance is handled by the model (class_weight='balanced' in LGBMClassifier).
 
     Args:
-        model: Обучаемая модель классификации (например, LGBMClassifier).
+        model: An unfitted sklearn-compatible classifier.
 
     Returns:
-        imblearn.pipeline.Pipeline: Собранный пайплайн.
+        imblearn.pipeline.Pipeline
     """
-    scaler = create_scaling_transformer()
-
-    pipeline_steps = [
-        ("time_features", time_transformer),
-        ("amount_log", amount_transformer),
-        ("scaler", scaler),
-        ("classifier", model),  # Шаг с финальной моделью
-    ]
-
-    pipeline = ImbPipeline(steps=pipeline_steps)
-    return pipeline
+    return ImbPipeline(
+        steps=[
+            ("time_features", create_time_transformer()),
+            ("amount_log", create_amount_transformer()),
+            ("scaler", create_scaling_transformer()),
+            ("classifier", model),
+        ]
+    )

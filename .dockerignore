@@ -1,14 +1,14 @@
-# Виртуальное окружение
+# Virtual environments
 .venv/
-.fraud/ # Если твое окружение называется так
+.fraud/
 
-# Пайпкеш и байткод
+# Bytecode
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 
-# IDE/Редактор
+# IDE
 .vscode/
 .idea/
 *.suo
@@ -17,22 +17,22 @@ __pycache__/
 *.sln
 *.sw?
 
-# Тесты и документация (если не нужны в образе)
+# Tests & docs (not needed in image)
 tests/
 docs/
 notebooks/
 *.ipynb
 .ipynb_checkpoints
 
-# Данные ОС
+# OS files
 .DS_Store
 Thumbs.db
 
-# Docker и Git
+# Docker & Git
 Dockerfile
 .dockerignore
 .git/
 .gitignore
 
-# Другое (например, большие файлы данных, если они не нужны в образе)
-# data/*.csv # Раскомментируй, если данные не нужны в образе, но тогда app.py не сможет их грузить
+# Large data files (not needed in image — model artifacts are pre-built)
+data/

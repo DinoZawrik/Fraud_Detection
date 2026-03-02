@@ -1,58 +1,52 @@
-"""
-Вспомогательные утилиты для проекта.
+"""Utility helpers for saving and loading project artifacts."""
 
-Содержит функции для сохранения и загрузки объектов (моделей, метрик и т.д.)
-с использованием joblib, а также для загрузки данных из CSV.
-"""
+import logging
+import os
 
 import joblib
-import os
 import pandas as pd
-import traceback
-import requests
 
-def save_joblib(data, file_path):
-    """Сохраняет объект в файл с использованием joblib."""
+logger = logging.getLogger(__name__)
+
+
+def save_joblib(data, file_path: str) -> None:
+    """Serialize an object to disk with joblib."""
     try:
-        # Создаем директорию, если она не существует
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         joblib.dump(data, file_path)
-        print(f"Объект успешно сохранен: {file_path}")
-    except Exception as e:
-        print(f"Ошибка при сохранении объекта в {file_path}:")
-        traceback.print_exc()  # Выводим traceback для диагностики
+        logger.info("Saved: %s", file_path)
+    except Exception:
+        logger.exception("Failed to save %s", file_path)
 
 
-def load_joblib(file_path):
-    """Загружает объект из файла с использованием joblib."""
+def load_joblib(file_path: str):
+    """Deserialize an object from disk with joblib. Returns None if missing."""
     if not os.path.exists(file_path):
-        print(f"Ошибка: Файл не найден по пути {file_path}")
+        logger.warning("File not found: %s", file_path)
         return None
     try:
-        print(f"Загрузка объекта: {file_path}")
         data = joblib.load(file_path)
-        print(f"Объект успешно загружен: {file_path}")
+        logger.info("Loaded: %s", file_path)
         return data
-    except Exception as e:
-        print(f"Ошибка при загрузке объекта из {file_path}:")
-        traceback.print_exc()  # Выводим traceback для диагностики
+    except Exception:
+        logger.exception("Failed to load %s", file_path)
         return None
 
 
-# Псевдонимы для большей ясности при использовании для пайплайнов
+# Aliases for pipeline I/O
 save_pipeline = save_joblib
 load_pipeline = load_joblib
 
 
-def load_data(file_path):
-    """Загружает данные из CSV по локальному пути."""
+def load_data(file_path: str) -> pd.DataFrame | None:
+    """Load a CSV dataset. Returns None if the file is missing or unreadable."""
     if not os.path.exists(file_path):
-        print(f"Ошибка: Файл данных не найден по пути {file_path}")
+        logger.warning("Data file not found: %s", file_path)
         return None
     try:
         df = pd.read_csv(file_path)
-        print(f"Данные успешно загружены из: {file_path}")
+        logger.info("Loaded dataset: %s  shape=%s", file_path, df.shape)
         return df
     except Exception as e:
-        print(f"Ошибка при загрузке данных из {file_path}: {e}")
+        logger.exception("Failed to load data from %s: %s", file_path, e)
         return None
